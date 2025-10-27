@@ -40,9 +40,7 @@ public class TemplateManagerDialog extends JDialog {
         setLocationRelativeTo(getParent());
 
         JPanel leftPanel = createTemplatesListPanel();
-
         JPanel rightPanel = createPreviewPanel();
-
         JPanel bottomPanel = createButtonPanel();
 
         add(leftPanel, BorderLayout.WEST);
@@ -151,7 +149,6 @@ public class TemplateManagerDialog extends JDialog {
     }
 
     private void setupEventListeners() {
-
         templatesList.addListSelectionListener(new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent e) {
@@ -198,7 +195,6 @@ public class TemplateManagerDialog extends JDialog {
 
         String content = templateManager.loadTemplate(selectedTemplate);
         if (content != null) {
-            // Process the content to remove formatting tags for preview
             String processedContent = processTemplateForPreview(content);
             previewArea.setText(processedContent);
             previewArea.setCaretPosition(0);
@@ -221,7 +217,22 @@ public class TemplateManagerDialog extends JDialog {
                 long formatCommands = content.lines()
                         .filter(line -> line.contains("[") && line.contains("]"))
                         .count();
-                infoText.append("Format Commands: ").append(formatCommands);
+                infoText.append("Format Commands: ").append(formatCommands).append("\n\n");
+            }
+
+            // Add logo information
+            if (info.hasLogo()) {
+                infoText.append("Logo: Yes\n");
+                File logoFile = new File(info.getLogoPath());
+                infoText.append("Logo File: ").append(logoFile.getName()).append("\n");
+                infoText.append("Logo Width: ").append(info.getLogoWidth()).append(" px\n");
+                infoText.append("Logo Alignment: ").append(info.getLogoAlignment()).append("\n");
+
+                if (!logoFile.exists()) {
+                    infoText.append("\n⚠ Warning: Logo file not found at saved path");
+                }
+            } else {
+                infoText.append("Logo: None");
             }
 
             infoArea.setText(infoText.toString());
@@ -246,12 +257,33 @@ public class TemplateManagerDialog extends JDialog {
         }
 
         String content = templateManager.loadTemplate(selectedTemplate);
+        TemplateManager.TemplateInfo info = templateManager.getTemplateInfo(selectedTemplate);
+
         if (content != null) {
             parentFrame.setReceiptContent(content);
-            JOptionPane.showMessageDialog(this,
-                    "Template '" + selectedTemplate + "' loaded successfully!",
-                    "Template Loaded",
-                    JOptionPane.INFORMATION_MESSAGE);
+
+            // Load logo if available
+            if (info != null && info.hasLogo()) {
+                File logoFile = new File(info.getLogoPath());
+                if (logoFile.exists()) {
+                    parentFrame.setLogoFromPath(info.getLogoPath(), info.getLogoWidth(), info.getLogoAlignment());
+                    JOptionPane.showMessageDialog(this,
+                            "Template '" + selectedTemplate + "' loaded successfully with logo!",
+                            "Template Loaded",
+                            JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this,
+                            "Template loaded but logo file not found.\nOriginal path: " + info.getLogoPath(),
+                            "Logo Missing",
+                            JOptionPane.WARNING_MESSAGE);
+                }
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        "Template '" + selectedTemplate + "' loaded successfully!",
+                        "Template Loaded",
+                        JOptionPane.INFORMATION_MESSAGE);
+            }
+
             dispose();
         } else {
             JOptionPane.showMessageDialog(this,
@@ -386,9 +418,19 @@ public class TemplateManagerDialog extends JDialog {
                 }
             }
 
-            if (templateManager.saveTemplate(templateName, currentContent, description)) {
+            // Get logo information from main frame
+            String logoPath = parentFrame.getLogoPath();
+            Integer logoWidth = parentFrame.getLogoWidth();
+            String logoAlignment = parentFrame.getLogoAlignment();
+
+            if (templateManager.saveTemplate(templateName, currentContent, description,
+                    logoPath, logoWidth, logoAlignment)) {
+                String message = "Template '" + templateName + "' saved successfully!";
+                if (logoPath != null) {
+                    message += "\n(includes logo)";
+                }
                 JOptionPane.showMessageDialog(this,
-                        "Template '" + templateName + "' saved successfully!",
+                        message,
                         "Template Saved",
                         JOptionPane.INFORMATION_MESSAGE);
                 loadTemplatesList();
@@ -409,8 +451,16 @@ public class TemplateManagerDialog extends JDialog {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
 
             if (value != null) {
-                setText(value.toString());
-                setIcon(new TemplateIcon());
+                String templateName = value.toString();
+                setText(templateName);
+
+                // Check if template has a logo
+                TemplateManager.TemplateInfo info = templateManager.getTemplateInfo(templateName);
+                if (info != null && info.hasLogo()) {
+                    setIcon(new TemplateIconWithLogo());
+                } else {
+                    setIcon(new TemplateIcon());
+                }
             }
 
             return this;
@@ -446,6 +496,42 @@ public class TemplateManagerDialog extends JDialog {
         }
     }
 
+    private class TemplateIconWithLogo implements Icon {
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            // Draw template document
+            g2.setColor(new Color(100, 149, 237));
+            g2.fillRect(x + 2, y + 1, 10, 12);
+            g2.setColor(Color.WHITE);
+            g2.drawLine(x + 4, y + 3, x + 10, y + 3);
+            g2.drawLine(x + 4, y + 5, x + 10, y + 5);
+            g2.drawLine(x + 4, y + 7, x + 8, y + 7);
+            g2.drawLine(x + 4, y + 9, x + 10, y + 9);
+
+            // Draw small image indicator (green)
+            g2.setColor(new Color(46, 204, 113));
+            g2.fillRect(x + 8, y + 8, 6, 5);
+            g2.setColor(Color.WHITE);
+            g2.drawRect(x + 9, y + 9, 2, 2);
+
+            g2.dispose();
+        }
+
+        @Override
+        public int getIconWidth() {
+            return 16;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return 16;
+        }
+    }
+
     private String processTemplateForPreview(String content) {
         if (content == null) {
             return null;
@@ -453,7 +539,6 @@ public class TemplateManagerDialog extends JDialog {
 
         String processed = content;
 
-        // Remove formatting tags while preserving the content
         processed = processed.replaceAll(
                 "\\[BOLD\\]|\\[/BOLD\\]|"
                 + "\\[SIZE=\\d+\\]|\\[/SIZE\\]|"

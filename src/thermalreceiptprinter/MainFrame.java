@@ -78,10 +78,15 @@ public class MainFrame extends JFrame {
         JPanel leftPanel = createEditorPanel();
         JPanel rightPanel = createPreviewPanel();
 
-        add(leftPanel, BorderLayout.WEST);
-        add(rightPanel, BorderLayout.CENTER);
+        // Create split pane for resizable panels
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
+        splitPane.setResizeWeight(1.0); // Left panel gets extra space
+        splitPane.setOneTouchExpandable(true);
+        splitPane.setDividerLocation(380); // Initial divider location
 
-        setSize(900, 750);
+        add(splitPane, BorderLayout.CENTER);
+
+        setSize(900, 730);
         setLocationRelativeTo(null);
         setResizable(true);
     }
@@ -162,7 +167,7 @@ public class MainFrame extends JFrame {
     private JPanel createEditorPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new TitledBorder("Receipt Editor"));
-        panel.setPreferredSize(new Dimension(400, 600));
+        panel.setMinimumSize(new Dimension(350, 600));
 
         receiptTextPane = new JTextPane();
         receiptTextPane.setFont(new Font("Courier New", Font.PLAIN, 14));
@@ -183,11 +188,12 @@ public class MainFrame extends JFrame {
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.add(controlsPanel, BorderLayout.NORTH);
 
-        JPanel middlePanel = new JPanel(new BorderLayout());
-        middlePanel.add(logoPanel, BorderLayout.NORTH);
-        middlePanel.add(formattingPanel, BorderLayout.CENTER);
+        // Create collapsible panels
+        JPanel collapsibleSection = new JPanel(new BorderLayout());
+        collapsibleSection.add(createCollapsiblePanel("Logo Settings", logoPanel), BorderLayout.NORTH);
+        collapsibleSection.add(createCollapsiblePanel("Text Formatting", formattingPanel), BorderLayout.CENTER);
 
-        topPanel.add(middlePanel, BorderLayout.CENTER);
+        topPanel.add(collapsibleSection, BorderLayout.CENTER);
 
         panel.add(topPanel, BorderLayout.NORTH);
         panel.add(scrollPane, BorderLayout.CENTER);
@@ -196,9 +202,50 @@ public class MainFrame extends JFrame {
         return panel;
     }
 
+    private JPanel createCollapsiblePanel(String title, JPanel contentPanel) {
+        JPanel wrapper = new JPanel(new BorderLayout());
+
+        // Header panel with toggle button
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
+        headerPanel.setBackground(new Color(240, 240, 240));
+
+        JButton toggleButton = new JButton(title);
+        toggleButton.setHorizontalAlignment(SwingConstants.LEFT);
+        toggleButton.setFocusPainted(false);
+        toggleButton.setContentAreaFilled(false);
+        toggleButton.setBorderPainted(false);
+        toggleButton.setFont(new Font("Arial", Font.BOLD, 11));
+        toggleButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        JLabel arrowLabel = new JLabel("▼");
+        arrowLabel.setFont(new Font("Arial", Font.PLAIN, 10));
+
+        headerPanel.add(toggleButton, BorderLayout.CENTER);
+        headerPanel.add(arrowLabel, BorderLayout.EAST);
+
+        // Content panel (initially visible)
+        contentPanel.setVisible(true);
+
+        // Toggle action
+        toggleButton.addActionListener(e -> {
+            boolean isVisible = contentPanel.isVisible();
+            contentPanel.setVisible(!isVisible);
+            arrowLabel.setText(isVisible ? "▶" : "▼");
+            wrapper.revalidate();
+            wrapper.repaint();
+        });
+
+        wrapper.add(headerPanel, BorderLayout.NORTH);
+        wrapper.add(contentPanel, BorderLayout.CENTER);
+        wrapper.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1));
+
+        return wrapper;
+    }
+
     private JPanel createLogoPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Logo Settings"));
+        panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
         JPanel controlsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
 
@@ -256,10 +303,10 @@ public class MainFrame extends JFrame {
 
     private JPanel createFormattingPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Text Formatting"));
+        panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
         JPanel topRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
-        JPanel bottomRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 9));
+        JPanel bottomRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
 
         boldButton = new JButton("B");
         boldButton.setFont(new Font("Arial", Font.BOLD, 10));
@@ -377,6 +424,9 @@ public class MainFrame extends JFrame {
     private JPanel createPreviewPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new TitledBorder("Receipt Preview (80mm width)"));
+        panel.setPreferredSize(new Dimension(320, 500));
+        panel.setMinimumSize(new Dimension(320, 400));
+        panel.setMaximumSize(new Dimension(450, Integer.MAX_VALUE));
 
         previewTextPane = new JTextPane();
         previewTextPane.setEditable(false);
@@ -386,7 +436,6 @@ public class MainFrame extends JFrame {
         initPreviewTextPane();
 
         JScrollPane previewScroll = new JScrollPane(previewTextPane);
-        previewScroll.setPreferredSize(new Dimension(320, 500));
         previewScroll.getVerticalScrollBar().setUnitIncrement(16);
 
         panel.add(previewScroll, BorderLayout.CENTER);
