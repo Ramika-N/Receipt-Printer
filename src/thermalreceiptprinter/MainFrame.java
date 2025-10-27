@@ -20,6 +20,9 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.io.File;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 
 public class MainFrame extends JFrame {
 
@@ -48,6 +51,15 @@ public class MainFrame extends JFrame {
     private final int TSP100_CHAR_WIDTH = 42;
     private JTextPane previewTextPane;
 
+    // Logo support
+    private BufferedImage logoImage = null;
+    private String logoPath = null;
+    private JButton addLogoButton;
+    private JButton removeLogoButton;
+    private JLabel logoPreviewLabel;
+    private JSpinner logoWidthSpinner;
+    private JComboBox<String> logoAlignmentCombo;
+
     public MainFrame() {
         initPreviewTextPane();
         initComponents();
@@ -69,7 +81,7 @@ public class MainFrame extends JFrame {
         add(leftPanel, BorderLayout.WEST);
         add(rightPanel, BorderLayout.CENTER);
 
-        setSize(900, 700);
+        setSize(900, 750);
         setLocationRelativeTo(null);
         setResizable(true);
     }
@@ -115,6 +127,18 @@ public class MainFrame extends JFrame {
         formatMenu.add(boldMenuItem);
         formatMenu.add(plainMenuItem);
 
+        JMenu imageMenu = new JMenu("Image");
+
+        JMenuItem addLogoMenuItem = new JMenuItem("Add Logo...");
+        addLogoMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl L"));
+        addLogoMenuItem.addActionListener(e -> addLogo());
+
+        JMenuItem removeLogoMenuItem = new JMenuItem("Remove Logo");
+        removeLogoMenuItem.addActionListener(e -> removeLogo());
+
+        imageMenu.add(addLogoMenuItem);
+        imageMenu.add(removeLogoMenuItem);
+
         JMenu helpMenu = new JMenu("Help");
 
         JMenuItem formatHelpItem = new JMenuItem("Formatting Help");
@@ -129,6 +153,7 @@ public class MainFrame extends JFrame {
 
         menuBar.add(fileMenu);
         menuBar.add(formatMenu);
+        menuBar.add(imageMenu);
         menuBar.add(helpMenu);
 
         return menuBar;
@@ -151,16 +176,80 @@ public class MainFrame extends JFrame {
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 
         JPanel controlsPanel = createControlsPanel();
-        JPanel formattingPanel = createFormattingPanel(); // New formatting panel
+        JPanel logoPanel = createLogoPanel();
+        JPanel formattingPanel = createFormattingPanel();
         JPanel buttonsPanel = createButtonsPanel();
 
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.add(controlsPanel, BorderLayout.NORTH);
-        topPanel.add(formattingPanel, BorderLayout.SOUTH);
+
+        JPanel middlePanel = new JPanel(new BorderLayout());
+        middlePanel.add(logoPanel, BorderLayout.NORTH);
+        middlePanel.add(formattingPanel, BorderLayout.CENTER);
+
+        topPanel.add(middlePanel, BorderLayout.CENTER);
 
         panel.add(topPanel, BorderLayout.NORTH);
         panel.add(scrollPane, BorderLayout.CENTER);
         panel.add(buttonsPanel, BorderLayout.SOUTH);
+
+        return panel;
+    }
+
+    private JPanel createLogoPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("Logo Settings"));
+
+        JPanel controlsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
+
+        addLogoButton = new JButton("Add Logo");
+        addLogoButton.setFont(new Font("Arial", Font.PLAIN, 10));
+        addLogoButton.setPreferredSize(new Dimension(80, 22));
+        addLogoButton.setToolTipText("Add a logo image to the receipt");
+        addLogoButton.setFocusPainted(false);
+        addLogoButton.addActionListener(e -> addLogo());
+
+        Image originalImage = new ImageIcon(this.getClass().getResource("/images/trash-can.png")).getImage();
+        Image scaledImage = originalImage.getScaledInstance(15, 15, Image.SCALE_SMOOTH);
+        ImageIcon scaledIcon = new ImageIcon(scaledImage);
+        removeLogoButton = new JButton(scaledIcon);
+        removeLogoButton.setFont(new Font("Arial", Font.PLAIN, 10));
+        removeLogoButton.setPreferredSize(new Dimension(40, 22));
+        removeLogoButton.setToolTipText("Remove the logo");
+        removeLogoButton.setFocusPainted(false);
+        removeLogoButton.setEnabled(false);
+        removeLogoButton.addActionListener(e -> removeLogo());
+
+        logoWidthSpinner = new JSpinner(new SpinnerNumberModel(150, 50, 300, 10));
+        logoWidthSpinner.setPreferredSize(new Dimension(60, 22));
+        logoWidthSpinner.setToolTipText("Logo width in pixels");
+        logoWidthSpinner.setEnabled(false);
+        logoWidthSpinner.addChangeListener(e -> updatePreview());
+
+        String[] alignments = {"LEFT", "CENTER", "RIGHT"};
+        logoAlignmentCombo = new JComboBox<>(alignments);
+        logoAlignmentCombo.setSelectedItem("CENTER");
+        logoAlignmentCombo.setPreferredSize(new Dimension(80, 22));
+        logoAlignmentCombo.setToolTipText("Logo alignment");
+        logoAlignmentCombo.setEnabled(false);
+        logoAlignmentCombo.addActionListener(e -> updatePreview());
+
+        logoPreviewLabel = new JLabel("No logo");
+        logoPreviewLabel.setForeground(Color.GRAY);
+        logoPreviewLabel.setFont(new Font("Arial", Font.ITALIC, 10));
+
+        controlsRow.add(addLogoButton);
+        controlsRow.add(removeLogoButton);
+        controlsRow.add(Box.createHorizontalStrut(5));
+        controlsRow.add(new JLabel("Width:"));
+        controlsRow.add(logoWidthSpinner);
+        controlsRow.add(Box.createHorizontalStrut(5));
+        controlsRow.add(new JLabel("Align:"));
+        controlsRow.add(logoAlignmentCombo);
+        controlsRow.add(Box.createHorizontalStrut(10));
+        controlsRow.add(logoPreviewLabel);
+
+        panel.add(controlsRow, BorderLayout.CENTER);
 
         return panel;
     }
@@ -289,14 +378,13 @@ public class MainFrame extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new TitledBorder("Receipt Preview (80mm width)"));
 
-        previewTextPane = new JTextPane();  // Change to JTextPane
+        previewTextPane = new JTextPane();
         previewTextPane.setEditable(false);
         previewTextPane.setBackground(Color.WHITE);
         previewTextPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         initPreviewTextPane();
 
-        // Create scroll pane
         JScrollPane previewScroll = new JScrollPane(previewTextPane);
         previewScroll.setPreferredSize(new Dimension(320, 500));
         previewScroll.getVerticalScrollBar().setUnitIncrement(16);
@@ -319,6 +407,69 @@ public class MainFrame extends JFrame {
         panel.add(infoPanel, BorderLayout.SOUTH);
 
         return panel;
+    }
+
+    private void addLogo() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Select Logo Image");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+            @Override
+            public boolean accept(File f) {
+                if (f.isDirectory()) {
+                    return true;
+                }
+                String name = f.getName().toLowerCase();
+                return name.endsWith(".png") || name.endsWith(".jpg")
+                        || name.endsWith(".jpeg") || name.endsWith(".gif") || name.endsWith(".bmp");
+            }
+
+            @Override
+            public String getDescription() {
+                return "Image Files (*.png, *.jpg, *.jpeg, *.gif, *.bmp)";
+            }
+        });
+
+        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            try {
+                logoImage = ImageIO.read(selectedFile);
+                logoPath = selectedFile.getAbsolutePath();
+
+                logoPreviewLabel.setText(selectedFile.getName());
+                logoPreviewLabel.setForeground(new Color(46, 204, 113));
+
+                removeLogoButton.setEnabled(true);
+                logoWidthSpinner.setEnabled(true);
+                logoAlignmentCombo.setEnabled(true);
+
+                updatePreview();
+
+                JOptionPane.showMessageDialog(this,
+                        "Logo added successfully!\nIt will appear at the top of your receipt.",
+                        "Logo Added",
+                        JOptionPane.INFORMATION_MESSAGE);
+
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this,
+                        "Failed to load image: " + e.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void removeLogo() {
+        logoImage = null;
+        logoPath = null;
+
+        logoPreviewLabel.setText("No logo");
+        logoPreviewLabel.setForeground(Color.GRAY);
+
+        removeLogoButton.setEnabled(false);
+        logoWidthSpinner.setEnabled(false);
+        logoAlignmentCombo.setEnabled(false);
+
+        updatePreview();
     }
 
     private void setupEventListeners() {
@@ -388,7 +539,7 @@ public class MainFrame extends JFrame {
         receiptTextPane.addCaretListener(e -> updateFormatButtons());
         fontSizeSpinner.addChangeListener(e -> {
             fontSize = (Integer) fontSizeSpinner.getValue();
-            updatePreviewFont(); // Update font immediately
+            updatePreviewFont();
             updatePreview();
         });
     }
@@ -397,9 +548,36 @@ public class MainFrame extends JFrame {
         previewTextPane = new JTextPane() {
             @Override
             public FontMetrics getFontMetrics(Font font) {
-                // Scale font size for preview accuracy
                 Font previewFont = font.deriveFont((float) (font.getSize() * 1.15));
                 return super.getFontMetrics(previewFont);
+            }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+
+                // Draw logo at the top if available
+                if (logoImage != null) {
+                    Graphics2D g2d = (Graphics2D) g.create();
+                    g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                            RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+
+                    int logoWidth = (Integer) logoWidthSpinner.getValue();
+                    int logoHeight = (int) (logoImage.getHeight() * ((double) logoWidth / logoImage.getWidth()));
+
+                    int x = 10; // Default left
+                    String logoAlign = (String) logoAlignmentCombo.getSelectedItem();
+                    int componentWidth = getWidth() - 20; // Account for padding
+
+                    if ("CENTER".equals(logoAlign)) {
+                        x = 10 + (componentWidth - logoWidth) / 2;
+                    } else if ("RIGHT".equals(logoAlign)) {
+                        x = 10 + componentWidth - logoWidth;
+                    }
+
+                    g2d.drawImage(logoImage, x, 10, logoWidth, logoHeight, null);
+                    g2d.dispose();
+                }
             }
         };
 
@@ -410,7 +588,6 @@ public class MainFrame extends JFrame {
 
     private void updatePreviewFont() {
         Font baseFont = new Font("Courier New", Font.PLAIN, fontSize);
-        // Scale up for better visibility in preview
         Font previewFont = baseFont.deriveFont((float) (fontSize * 1.25));
         previewTextPane.setFont(previewFont);
     }
@@ -421,7 +598,6 @@ public class MainFrame extends JFrame {
         private final Set<String> availableFonts;
 
         public EnhancedFontComboBoxRenderer() {
-            // Cache available fonts for performance
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
             availableFonts = new HashSet<>(Arrays.asList(ge.getAvailableFontFamilyNames()));
         }
@@ -470,13 +646,12 @@ public class MainFrame extends JFrame {
 
         try {
             String plainText = doc.getText(0, doc.getLength());
-
             doc.remove(0, doc.getLength());
 
             SimpleAttributeSet attrs = new SimpleAttributeSet();
             StyleConstants.setFontFamily(attrs, selectedFont);
-            StyleConstants.setFontSize(attrs, 14); // Default size
-            StyleConstants.setBold(attrs, false); // Default not bold
+            StyleConstants.setFontSize(attrs, 14);
+            StyleConstants.setBold(attrs, false);
 
             doc.insertString(0, plainText, attrs);
 
@@ -486,13 +661,10 @@ public class MainFrame extends JFrame {
             StyleConstants.setFontSize(inputAttrs, 14);
             StyleConstants.setBold(inputAttrs, false);
 
-            //currentFontStyle = selectedFont;
             allSetFontStyle = selectedFont;
             isok = true;
-            // Update preview
             updatePreview();
 
-            // Show confirmation message
         } catch (Exception ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this,
@@ -509,35 +681,28 @@ public class MainFrame extends JFrame {
         String selectedFont = (String) fontStyleCombo.getSelectedItem();
 
         if (start == end) {
-            // No selection, set font for new text input
             MutableAttributeSet attrs = receiptTextPane.getInputAttributes();
             StyleConstants.setFontFamily(attrs, selectedFont);
             currentFontStyle = selectedFont;
         } else {
-
             try {
-                // Process each character individually to maintain existing formatting
                 for (int i = start; i < end; i++) {
                     AttributeSet existingAttrs = doc.getCharacterElement(i).getAttributes();
                     SimpleAttributeSet newAttrs = new SimpleAttributeSet(existingAttrs);
                     StyleConstants.setFontFamily(newAttrs, selectedFont);
                     doc.setCharacterAttributes(i, 1, newAttrs, false);
                 }
-
             } catch (Exception e) {
                 e.printStackTrace();
-                // Fallback: apply to entire selection with replace=false
                 SimpleAttributeSet fallbackAttrs = new SimpleAttributeSet();
                 StyleConstants.setFontFamily(fallbackAttrs, selectedFont);
                 doc.setCharacterAttributes(start, end - start, fallbackAttrs, false);
             }
 
-            // Update input attributes for new text
             MutableAttributeSet inputAttrs = receiptTextPane.getInputAttributes();
             StyleConstants.setFontFamily(inputAttrs, selectedFont);
             currentFontStyle = selectedFont;
 
-            // Maintain selection
             receiptTextPane.setSelectionStart(start);
             receiptTextPane.setSelectionEnd(end);
         }
@@ -551,18 +716,15 @@ public class MainFrame extends JFrame {
 
         StyledDocument doc = receiptTextPane.getStyledDocument();
 
-        // Always apply to entire document
         int start = 0;
         int end = doc.getLength();
 
-        // Calculate exact line height based on font metrics
         Font font = receiptTextPane.getFont();
         FontMetrics fm = receiptTextPane.getFontMetrics(font);
         int lineHeight = (int) (fm.getHeight() * lineSpacing);
 
-        // Apply line spacing to paragraphs
         SimpleAttributeSet paragraphAttrs = new SimpleAttributeSet();
-        StyleConstants.setLineSpacing(paragraphAttrs, 0); // Reset any existing spacing
+        StyleConstants.setLineSpacing(paragraphAttrs, 0);
         StyleConstants.setSpaceAbove(paragraphAttrs, 0);
         StyleConstants.setSpaceBelow(paragraphAttrs, lineHeight - fm.getHeight());
         doc.setParagraphAttributes(start, end - start, paragraphAttrs, false);
@@ -577,12 +739,10 @@ public class MainFrame extends JFrame {
         int end = receiptTextPane.getSelectionEnd();
 
         if (start == end) {
-            // No selection, set font size for new text input
             MutableAttributeSet attrs = receiptTextPane.getInputAttributes();
             int selectedFontSize = (Integer) customFontSizeSpinner.getValue();
             StyleConstants.setFontSize(attrs, selectedFontSize);
         } else {
-            // Apply font size to selection
             SimpleAttributeSet attrs = new SimpleAttributeSet();
             int selectedFontSize = (Integer) customFontSizeSpinner.getValue();
             StyleConstants.setFontSize(attrs, selectedFontSize);
@@ -599,11 +759,9 @@ public class MainFrame extends JFrame {
         int end = receiptTextPane.getSelectionEnd();
 
         if (start == end) {
-            // No selection, set bold for new text input
             MutableAttributeSet attrs = receiptTextPane.getInputAttributes();
             StyleConstants.setBold(attrs, true);
         } else {
-            // Apply bold to selection
             SimpleAttributeSet attrs = new SimpleAttributeSet();
             StyleConstants.setBold(attrs, true);
             doc.setCharacterAttributes(start, end - start, attrs, false);
@@ -619,11 +777,9 @@ public class MainFrame extends JFrame {
         int end = receiptTextPane.getSelectionEnd();
 
         if (start == end) {
-            // No selection, set plain for new text input
             MutableAttributeSet attrs = receiptTextPane.getInputAttributes();
             StyleConstants.setBold(attrs, false);
         } else {
-            // Apply plain to selection
             SimpleAttributeSet attrs = new SimpleAttributeSet();
             StyleConstants.setBold(attrs, false);
             doc.setCharacterAttributes(start, end - start, attrs, false);
@@ -639,10 +795,8 @@ public class MainFrame extends JFrame {
         int end = receiptTextPane.getSelectionEnd();
 
         if (start == end) {
-            // No selection, check input attributes
             return StyleConstants.isBold(receiptTextPane.getInputAttributes());
         } else {
-            // Check if any part of selection is bold
             for (int i = start; i < end; i++) {
                 AttributeSet attrs = doc.getCharacterElement(i).getAttributes();
                 if (StyleConstants.isBold(attrs)) {
@@ -659,10 +813,8 @@ public class MainFrame extends JFrame {
         int end = receiptTextPane.getSelectionEnd();
 
         if (start == end) {
-            // No selection, check input attributes
             return !StyleConstants.isBold(receiptTextPane.getInputAttributes());
         } else {
-            // Check if any part of selection is plain (not bold)
             for (int i = start; i < end; i++) {
                 AttributeSet attrs = doc.getCharacterElement(i).getAttributes();
                 if (!StyleConstants.isBold(attrs)) {
@@ -684,7 +836,6 @@ public class MainFrame extends JFrame {
         plainButton.setBackground(isPlain ? new Color(220, 220, 220) : null);
         plainButton.setOpaque(isPlain);
 
-        // Update the font size spinner without triggering change events
         SwingUtilities.invokeLater(() -> {
             customFontSizeSpinner.setValue(fontSize);
         });
@@ -696,7 +847,6 @@ public class MainFrame extends JFrame {
         boldButton.setOpaque(isBold);
     }
 
-    // Method to convert styled text to plain text with formatting codes
     private String getFormattedText() {
         StyledDocument doc = receiptTextPane.getStyledDocument();
         StringBuilder result = new StringBuilder();
@@ -704,7 +854,6 @@ public class MainFrame extends JFrame {
         try {
             String text = doc.getText(0, doc.getLength());
 
-            // Track current formatting state
             boolean inBold = false;
             int currentFontSize = 14;
             String currentFont = "Courier New";
@@ -717,12 +866,10 @@ public class MainFrame extends JFrame {
                 int charFontSize = StyleConstants.getFontSize(attrs);
                 String charFontFamily = StyleConstants.getFontFamily(attrs);
 
-                // Normalize font family name
                 if (charFontFamily == null || charFontFamily.trim().isEmpty()) {
                     charFontFamily = "Courier New";
                 }
 
-                // Handle bold formatting changes
                 if (charIsBold != inBold) {
                     if (charIsBold) {
                         result.append("[BOLD]");
@@ -733,7 +880,6 @@ public class MainFrame extends JFrame {
                     }
                 }
 
-                // Handle font size changes
                 if (charFontSize != currentFontSize) {
                     if (currentFontSize != 14) {
                         result.append("[/SIZE]");
@@ -744,7 +890,6 @@ public class MainFrame extends JFrame {
                     currentFontSize = charFontSize;
                 }
 
-                // Handle font family changes
                 if (!charFontFamily.equals(currentFont)) {
                     if (!currentFont.equals("Courier New")) {
                         result.append("[/FONT]");
@@ -758,7 +903,6 @@ public class MainFrame extends JFrame {
                 result.append(currentChar);
             }
 
-            // Close any open tags at the end
             if (inBold) {
                 result.append("[/BOLD]");
             }
@@ -790,7 +934,6 @@ public class MainFrame extends JFrame {
                 continue;
             }
 
-            // Skip formatting for lines with tags (they'll be processed in updatePreview)
             if (line.startsWith("[BOLD]") || line.startsWith("[/BOLD]")
                     || line.startsWith("[SIZE=") || line.startsWith("[/SIZE]")
                     || line.startsWith("[FONT=") || line.startsWith("[/FONT]")) {
@@ -798,7 +941,6 @@ public class MainFrame extends JFrame {
                 continue;
             }
 
-            // Handle table rows
             if (line.contains("|")) {
                 String[] parts = line.split("\\|");
                 StringBuilder tableLine = new StringBuilder();
@@ -822,7 +964,6 @@ public class MainFrame extends JFrame {
                 line = tableLine.toString();
             }
 
-            // Handle other formatting
             if (line.startsWith("[CENTER]")) {
                 line = centerTextTSP100(line.substring(8));
             } else if (line.startsWith("[RIGHT]")) {
@@ -842,7 +983,6 @@ public class MainFrame extends JFrame {
     }
 
     private int getVisibleTextLength(String text) {
-        // Remove ALL formatting tags to get actual visible character count
         return text.replaceAll("\\[BOLD\\]|\\[/BOLD\\]|\\[SIZE=\\d+\\]|\\[/SIZE\\]|\\[FONT=[^\\]]+\\]|\\[/FONT\\]", "").length();
     }
 
@@ -852,10 +992,8 @@ public class MainFrame extends JFrame {
         int end = receiptTextPane.getSelectionEnd();
 
         if (start == end) {
-            // No selection, return the input font size
             return StyleConstants.getFontSize(receiptTextPane.getInputAttributes());
         } else {
-            // Return the font size of the first character in the selection
             AttributeSet attrs = doc.getCharacterElement(start).getAttributes();
             return StyleConstants.getFontSize(attrs);
         }
@@ -909,7 +1047,6 @@ public class MainFrame extends JFrame {
             }
         }
 
-        // Close open tags
         if (inBold) {
             result.append("[/BOLD]");
         }
@@ -932,7 +1069,6 @@ public class MainFrame extends JFrame {
         return " ".repeat(Math.max(0, padding)) + text;
     }
 
-// Replace your existing rightAlignTextTSP100 method:
     private String rightAlignTextTSP100(String text) {
         int cleanTextLength = getVisibleTextLength(text);
         if (cleanTextLength >= TSP100_CHAR_WIDTH) {
@@ -966,6 +1102,14 @@ public class MainFrame extends JFrame {
         • Use the font size spinner to change text size
         • Choose from 50+ font families in the dropdown
         
+        ==========
+        LOGO SUPPORT
+        ==========
+        • Add logos with Ctrl+L or Image menu
+        • Supports PNG, JPG, GIF, BMP formats
+        • Adjust logo width and alignment
+        • Logo prints at top of receipt
+        
         ============
         TABLE FORMAT
         ============
@@ -988,6 +1132,7 @@ public class MainFrame extends JFrame {
         Ctrl+P - Print
         Ctrl+B - Bold text
         Ctrl+U - Plain text
+        Ctrl+L - Add logo
         
         ======
         TIPS
@@ -1005,14 +1150,14 @@ public class MainFrame extends JFrame {
         helpArea.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         JScrollPane scrollPane = new JScrollPane(helpArea);
-        scrollPane.setPreferredSize(new Dimension(550, 500));
+        scrollPane.setPreferredSize(new Dimension(550, 550));
 
         JOptionPane.showMessageDialog(this, scrollPane, "Formatting Help & Quick Reference", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void showAbout() {
         String aboutText = """
-            Thermal Receipt Printer v1.1
+            Thermal Receipt Printer v1.2
             
             A simple application for creating and printing
             thermal receipts with template support and rich text formatting.
@@ -1025,6 +1170,7 @@ public class MainFrame extends JFrame {
             • Custom font size support
             • Multiple font Style support
             • Multiple alignment options
+            • Logo image support
             • Print support
             
             Perfect for small businesses, cafes, and retail stores.
@@ -1034,7 +1180,6 @@ public class MainFrame extends JFrame {
     }
 
     private void updatePreview() {
-        // Update font first
         updatePreviewFont();
 
         String formattedText = getFormattedText();
@@ -1044,7 +1189,17 @@ public class MainFrame extends JFrame {
         try {
             doc.remove(0, doc.getLength());
 
-            // Process with scaled font sizes
+            // Add spacing for logo if present
+            if (logoImage != null) {
+                int logoWidth = (Integer) logoWidthSpinner.getValue();
+                int logoHeight = (int) (logoImage.getHeight() * ((double) logoWidth / logoImage.getWidth()));
+                int linesForLogo = (logoHeight / 15) + 2; // Approximate lines needed
+
+                for (int i = 0; i < linesForLogo; i++) {
+                    doc.insertString(doc.getLength(), "\n", null);
+                }
+            }
+
             Pattern pattern = Pattern.compile("(\\[BOLD\\]|\\[/BOLD\\]|\\[SIZE=(\\d+)\\]|\\[/SIZE\\]|\\[FONT=([^\\]]+)\\]|\\[/FONT\\])");
             Matcher matcher = pattern.matcher(processedText);
 
@@ -1055,13 +1210,11 @@ public class MainFrame extends JFrame {
             StyleConstants.setBold(attrs, false);
 
             while (matcher.find()) {
-                // Insert text before the tag
                 if (matcher.start() > lastIndex) {
                     String text = processedText.substring(lastIndex, matcher.start());
                     doc.insertString(doc.getLength(), text, attrs);
                 }
 
-                // Process the tag
                 String tag = matcher.group(0);
                 if (tag.equals("[BOLD]")) {
                     StyleConstants.setBold(attrs, true);
@@ -1085,12 +1238,10 @@ public class MainFrame extends JFrame {
                 lastIndex = matcher.end();
             }
 
-            // Insert remaining text after last tag
             if (lastIndex < processedText.length()) {
                 doc.insertString(doc.getLength(), processedText.substring(lastIndex), attrs);
             }
 
-            // Apply line spacing
             int length = doc.getLength();
             for (int i = 0; i < length;) {
                 Element elem = doc.getParagraphElement(i);
@@ -1101,6 +1252,8 @@ public class MainFrame extends JFrame {
                         paraAttrs, false);
                 i = elem.getEndOffset();
             }
+
+            previewTextPane.repaint();
         } catch (BadLocationException e) {
             e.printStackTrace();
         }
@@ -1116,30 +1269,29 @@ public class MainFrame extends JFrame {
         if (result == JOptionPane.YES_OPTION) {
             receiptTextPane.setText("");
 
-            // Reset default styles for new text input
             StyledDocument doc = receiptTextPane.getStyledDocument();
             SimpleAttributeSet attrs = new SimpleAttributeSet();
             StyleConstants.setFontFamily(attrs, "Courier New");
-            StyleConstants.setFontSize(attrs, 14); // Default font size
-            StyleConstants.setBold(attrs, false); // Default to not bold
-            receiptTextPane.setCharacterAttributes(attrs, true); // Apply to entire document
+            StyleConstants.setFontSize(attrs, 14);
+            StyleConstants.setBold(attrs, false);
+            receiptTextPane.setCharacterAttributes(attrs, true);
 
-            // Reset all UI controls to their default values
             fontSizeSpinner.setValue(12);
             alignmentCombo.setSelectedItem("LEFT");
             customFontSizeSpinner.setValue(14);
             fontStyleCombo.setSelectedItem("Courier New");
             lineSpacingSpinner.setValue(1.0);
 
-            // Reset instance variables to defaults
             fontSize = 12;
             alignment = "LEFT";
             currentFontStyle = "Courier New";
             lineSpacing = 1.0f;
             isok = false;
-            // Update format buttons appearance
-            updateFormatButtons();
 
+            // Clear logo
+            removeLogo();
+
+            updateFormatButtons();
             updatePreview();
         }
     }
@@ -1153,9 +1305,9 @@ public class MainFrame extends JFrame {
         try {
             String content = getFormattedText();
 
-            if (content.trim().isEmpty()) {
+            if (content.trim().isEmpty() && logoImage == null) {
                 JOptionPane.showMessageDialog(this,
-                        "No content to print. Please enter some text first.",
+                        "No content to print. Please enter some text or add a logo first.",
                         "Nothing to Print",
                         JOptionPane.WARNING_MESSAGE);
                 return;
@@ -1168,7 +1320,9 @@ public class MainFrame extends JFrame {
             attributes.add(MediaSizeName.INVOICE);
             attributes.add(PrintQuality.HIGH);
             fontSize = (Integer) fontSizeSpinner.getValue();
-            job.setPrintable(new ReceiptPrintable(content, fontSize, alignment));
+            job.setPrintable(new ReceiptPrintable(content, fontSize, alignment, logoImage,
+                    (Integer) logoWidthSpinner.getValue(),
+                    (String) logoAlignmentCombo.getSelectedItem()));
 
             if (job.printDialog(attributes)) {
                 job.print(attributes);
@@ -1185,6 +1339,18 @@ public class MainFrame extends JFrame {
         return getFormattedText();
     }
 
+    public String getLogoPath() {
+        return logoPath;
+    }
+
+    public Integer getLogoWidth() {
+        return (Integer) logoWidthSpinner.getValue();
+    }
+
+    public String getLogoAlignment() {
+        return (String) logoAlignmentCombo.getSelectedItem();
+    }
+
     public void setReceiptContent(String content) {
         receiptTextPane.setText("");
         StyledDocument doc = receiptTextPane.getStyledDocument();
@@ -1194,7 +1360,6 @@ public class MainFrame extends JFrame {
         StyleConstants.setFontSize(defaultAttrs, 14);
         StyleConstants.setBold(defaultAttrs, false);
 
-        // Enhanced pattern to handle all formatting tags
         Pattern pattern = Pattern.compile("(\\[BOLD\\]|\\[/BOLD\\]|\\[SIZE=(\\d+)\\]|\\[/SIZE\\]|\\[FONT=([^\\]]+)\\]|\\[/FONT\\])");
         Matcher matcher = pattern.matcher(content);
 
@@ -1205,7 +1370,6 @@ public class MainFrame extends JFrame {
 
         try {
             while (matcher.find()) {
-                // Insert text before the tag
                 if (matcher.start() > lastIndex) {
                     String text = content.substring(lastIndex, matcher.start());
                     SimpleAttributeSet attrs = new SimpleAttributeSet(defaultAttrs);
@@ -1215,7 +1379,6 @@ public class MainFrame extends JFrame {
                     doc.insertString(doc.getLength(), text, attrs);
                 }
 
-                // Process the tag
                 String tag = matcher.group(0);
                 if (tag.equals("[BOLD]")) {
                     currentBold = true;
@@ -1237,7 +1400,6 @@ public class MainFrame extends JFrame {
                 lastIndex = matcher.end();
             }
 
-            // Insert remaining text
             if (lastIndex < content.length()) {
                 String text = content.substring(lastIndex);
                 SimpleAttributeSet attrs = new SimpleAttributeSet(defaultAttrs);
@@ -1248,12 +1410,38 @@ public class MainFrame extends JFrame {
             }
         } catch (BadLocationException e) {
             e.printStackTrace();
-            // Fallback: just insert plain text without formatting
             receiptTextPane.setText(content.replaceAll("\\[BOLD\\]|\\[/BOLD\\]|\\[SIZE=\\d+\\]|\\[/SIZE\\]|\\[FONT=[^\\]]+\\]|\\[/FONT\\]", ""));
         }
 
         receiptTextPane.setCaretPosition(0);
         updatePreview();
+    }
+
+    public void setLogoFromPath(String path, int width, String alignment) {
+        if (path == null || path.isEmpty()) {
+            return;
+        }
+
+        try {
+            File logoFile = new File(path);
+            if (logoFile.exists()) {
+                logoImage = ImageIO.read(logoFile);
+                logoPath = path;
+
+                logoPreviewLabel.setText(logoFile.getName());
+                logoPreviewLabel.setForeground(new Color(46, 204, 113));
+
+                removeLogoButton.setEnabled(true);
+                logoWidthSpinner.setEnabled(true);
+                logoWidthSpinner.setValue(width);
+                logoAlignmentCombo.setEnabled(true);
+                logoAlignmentCombo.setSelectedItem(alignment);
+
+                updatePreview();
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to load logo from path: " + e.getMessage());
+        }
     }
 
     private class ReceiptPrintable implements Printable {
@@ -1264,13 +1452,20 @@ public class MainFrame extends JFrame {
         private float lineSpacing;
         private final int TSP100_PRINT_WIDTH = 42;
         private final int THERMAL_PRINT_FONT_SIZE;
+        private BufferedImage logo;
+        private int logoWidth;
+        private String logoAlignment;
 
-        public ReceiptPrintable(String content, int fontSize, String alignment) {
+        public ReceiptPrintable(String content, int fontSize, String alignment,
+                BufferedImage logo, int logoWidth, String logoAlignment) {
             this.content = content;
             this.fontSize = fontSize;
             this.alignment = alignment;
-            this.lineSpacing = MainFrame.this.lineSpacing; // Get line spacing from main frame
+            this.lineSpacing = MainFrame.this.lineSpacing;
             this.THERMAL_PRINT_FONT_SIZE = (Integer) fontSizeSpinner.getValue();
+            this.logo = logo;
+            this.logoWidth = logoWidth;
+            this.logoAlignment = logoAlignment;
         }
 
         @Override
@@ -1279,12 +1474,12 @@ public class MainFrame extends JFrame {
                 return NO_SUCH_PAGE;
             }
 
-            Graphics2D g2d = (Graphics2D) g;
+            Graphics2D g2d = (Graphics2D) g.create();
             g2d.translate(pf.getImageableX(), pf.getImageableY());
 
-            g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
-            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
-            g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
+            g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
             Font baseNormalFont = new Font("Courier New", Font.PLAIN, THERMAL_PRINT_FONT_SIZE);
             Font baseBoldFont = new Font("Courier New", Font.BOLD, THERMAL_PRINT_FONT_SIZE);
@@ -1292,13 +1487,28 @@ public class MainFrame extends JFrame {
             g2d.setColor(Color.BLACK);
             FontMetrics fm = g2d.getFontMetrics(baseNormalFont);
             int baseLineHeight = fm.getHeight();
-            int adjustedLineHeight = (int) (baseLineHeight * lineSpacing); // Apply line spacing
+            int adjustedLineHeight = (int) (baseLineHeight * lineSpacing);
             double availableWidth = pf.getImageableWidth();
+
+            int y = adjustedLineHeight;
+
+            // Print logo if available
+            if (logo != null) {
+                int printLogoHeight = (int) (logo.getHeight() * ((double) logoWidth / logo.getWidth()));
+
+                int logoX = 0;
+                if ("CENTER".equals(logoAlignment)) {
+                    logoX = (int) ((availableWidth - logoWidth) / 2);
+                } else if ("RIGHT".equals(logoAlignment)) {
+                    logoX = (int) (availableWidth - logoWidth);
+                }
+
+                g2d.drawImage(logo, logoX, y, logoWidth, printLogoHeight, null);
+                y += printLogoHeight + adjustedLineHeight;
+            }
 
             String formattedContent = formatForTSP100Print(content, TSP100_PRINT_WIDTH);
             String[] lines = formattedContent.split("\n");
-
-            int y = adjustedLineHeight;
 
             for (String line : lines) {
                 if (line.trim().isEmpty()) {
@@ -1342,7 +1552,6 @@ public class MainFrame extends JFrame {
                         Font fontToUse = createPrintFont(currentFontFamily, currentBold, currentFontSize);
                         g2d.setFont(fontToUse);
 
-                        // Enable anti-aliasing for better font rendering
                         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                                 RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
@@ -1382,7 +1591,6 @@ public class MainFrame extends JFrame {
                     Font fontToUse = createPrintFont(currentFontFamily, currentBold, currentFontSize);
                     g2d.setFont(fontToUse);
 
-                    // Enable anti-aliasing for better font rendering
                     g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                             RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
@@ -1395,18 +1603,12 @@ public class MainFrame extends JFrame {
             int fontStyle = bold ? Font.BOLD : Font.PLAIN;
 
             try {
-                // Validate font first
                 String validatedFont = validateAndGetFont(fontFamily);
-
-                // Create font with validated name
                 Font font = new Font(validatedFont, fontStyle, fontSize);
 
-                // Test if the font was actually created correctly
-                if (!font.getFamily().equalsIgnoreCase("Dialog")) { // Dialog is Java's fallback
-                    System.out.println("Successfully created font: " + font.getFontName());
+                if (!font.getFamily().equalsIgnoreCase("Dialog")) {
                     return font;
                 } else {
-                    System.out.println("Font fell back to Dialog, using Courier New instead");
                     return new Font("Courier New", fontStyle, fontSize);
                 }
 
@@ -1420,10 +1622,8 @@ public class MainFrame extends JFrame {
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
             String[] availableFonts = ge.getAvailableFontFamilyNames();
 
-            // Check if the exact font exists
             for (String availableFont : availableFonts) {
                 if (availableFont.equalsIgnoreCase(requestedFont)) {
-                    // Verify the font can actually render
                     Font testFont = new Font(availableFont, Font.PLAIN, 12);
                     if (!testFont.getFamily().equalsIgnoreCase("Dialog")) {
                         return availableFont;
@@ -1431,7 +1631,6 @@ public class MainFrame extends JFrame {
                 }
             }
 
-            // Check for partial matches
             for (String availableFont : availableFonts) {
                 if (availableFont.toLowerCase().contains(requestedFont.toLowerCase())
                         || requestedFont.toLowerCase().contains(availableFont.toLowerCase())) {
@@ -1443,7 +1642,6 @@ public class MainFrame extends JFrame {
                 }
             }
 
-            // For display/decorative fonts that may not print well, use Arial as fallback
             String lowerFont = requestedFont.toLowerCase();
             if (lowerFont.contains("arial") || lowerFont.contains("helvetica")) {
                 return "Arial";
@@ -1457,11 +1655,9 @@ public class MainFrame extends JFrame {
                 return "Tahoma";
             }
 
-            // For unknown/problematic fonts, use Arial (better for display text than Courier)
             System.out.println("Font '" + requestedFont + "' not found or cannot render, using Arial");
             return "Arial";
         }
-// Also add this method to help debug font issues:
 
         private String formatForTSP100Print(String input, int maxWidth) {
             if (input.isEmpty()) {
@@ -1555,7 +1751,6 @@ public class MainFrame extends JFrame {
                 }
             }
 
-            // Close any open formatting tags
             if (inBold) {
                 result.append("[/BOLD]");
             }
@@ -1576,7 +1771,7 @@ public class MainFrame extends JFrame {
             }
             int totalPadding = width - cleanTextLength;
             int leftPadding = totalPadding / 2;
-            int rightPadding = totalPadding - leftPadding; // Ensures total adds up correctly
+            int rightPadding = totalPadding - leftPadding;
             return " ".repeat(Math.max(0, leftPadding)) + text + " ".repeat(Math.max(0, rightPadding));
         }
 
@@ -1597,7 +1792,6 @@ public class MainFrame extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
-                //UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
                 FlatLightLaf.setup();
             } catch (Exception e) {
                 e.printStackTrace();

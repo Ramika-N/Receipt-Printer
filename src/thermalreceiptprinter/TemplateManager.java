@@ -4,7 +4,6 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 import java.text.SimpleDateFormat;
-import javax.swing.JOptionPane;
 
 public class TemplateManager {
 
@@ -27,19 +26,20 @@ public class TemplateManager {
         }
     }
 
-    public boolean saveTemplate(String templateName, String content, String description) {
+    public boolean saveTemplate(String templateName, String content, String description,
+            String logoPath, Integer logoWidth, String logoAlignment) {
         if (templateName == null || templateName.trim().isEmpty()) {
             return false;
         }
 
         try {
-
             String fileName = sanitizeFileName(templateName);
 
             Path templatePath = Paths.get(TEMPLATES_DIR, fileName + TEMPLATE_EXTENSION);
             Files.write(templatePath, content.getBytes("UTF-8"));
 
-            TemplateInfo info = new TemplateInfo(templateName, description, new Date());
+            TemplateInfo info = new TemplateInfo(templateName, description, new Date(),
+                    logoPath, logoWidth, logoAlignment);
             saveTemplateInfo(fileName, info);
 
             return true;
@@ -47,6 +47,11 @@ public class TemplateManager {
             System.err.println("Failed to save template: " + e.getMessage());
             return false;
         }
+    }
+
+    // Overloaded method for backward compatibility
+    public boolean saveTemplate(String templateName, String content, String description) {
+        return saveTemplate(templateName, content, description, null, 150, "CENTER");
     }
 
     public String loadTemplate(String templateName) {
@@ -140,6 +145,13 @@ public class TemplateManager {
             exportData.append("# Name: ").append(templateName).append("\n");
             exportData.append("# Description: ").append(info != null ? info.getDescription() : "").append("\n");
             exportData.append("# Created: ").append(info != null ? info.getCreatedDate() : new Date()).append("\n");
+
+            if (info != null && info.getLogoPath() != null) {
+                exportData.append("# Logo Path: ").append(info.getLogoPath()).append("\n");
+                exportData.append("# Logo Width: ").append(info.getLogoWidth()).append("\n");
+                exportData.append("# Logo Alignment: ").append(info.getLogoAlignment()).append("\n");
+            }
+
             exportData.append("# ---- TEMPLATE CONTENT BELOW ----\n");
             exportData.append(content);
 
@@ -156,6 +168,11 @@ public class TemplateManager {
             String content = new String(Files.readAllBytes(importFile.toPath()), "UTF-8");
 
             String templateContent = content;
+            String description = "Imported template";
+            String logoPath = null;
+            Integer logoWidth = 150;
+            String logoAlignment = "CENTER";
+
             if (content.contains("# ---- TEMPLATE CONTENT BELOW ----\n")) {
                 String[] parts = content.split("# ---- TEMPLATE CONTENT BELOW ----\n", 2);
                 if (parts.length > 1) {
@@ -163,18 +180,26 @@ public class TemplateManager {
                 }
             }
 
-            String description = "Imported template";
             if (content.startsWith("# Template Export")) {
                 String[] lines = content.split("\n");
                 for (String line : lines) {
                     if (line.startsWith("# Description: ")) {
                         description = line.substring("# Description: ".length());
-                        break;
+                    } else if (line.startsWith("# Logo Path: ")) {
+                        logoPath = line.substring("# Logo Path: ".length());
+                    } else if (line.startsWith("# Logo Width: ")) {
+                        try {
+                            logoWidth = Integer.parseInt(line.substring("# Logo Width: ".length()));
+                        } catch (NumberFormatException e) {
+                            logoWidth = 150;
+                        }
+                    } else if (line.startsWith("# Logo Alignment: ")) {
+                        logoAlignment = line.substring("# Logo Alignment: ".length());
                     }
                 }
             }
 
-            return saveTemplate(newTemplateName, templateContent, description);
+            return saveTemplate(newTemplateName, templateContent, description, logoPath, logoWidth, logoAlignment);
         } catch (IOException e) {
             System.err.println("Failed to import template: " + e.getMessage());
             return false;
@@ -198,6 +223,12 @@ public class TemplateManager {
             props.setProperty("displayName", info.getDisplayName());
             props.setProperty("description", info.getDescription());
             props.setProperty("createdDate", String.valueOf(info.getCreatedDate().getTime()));
+
+            if (info.getLogoPath() != null) {
+                props.setProperty("logoPath", info.getLogoPath());
+                props.setProperty("logoWidth", String.valueOf(info.getLogoWidth()));
+                props.setProperty("logoAlignment", info.getLogoAlignment());
+            }
 
             try (FileOutputStream fos = new FileOutputStream(infoPath.toFile())) {
                 props.store(fos, "Template Information");
@@ -224,7 +255,23 @@ public class TemplateManager {
             long timestamp = Long.parseLong(props.getProperty("createdDate", "0"));
             Date createdDate = timestamp > 0 ? new Date(timestamp) : new Date();
 
-            return new TemplateInfo(displayName, description, createdDate);
+            String logoPath = props.getProperty("logoPath", null);
+            Integer logoWidth = 150;
+            String logoAlignment = "CENTER";
+
+            if (props.containsKey("logoWidth")) {
+                try {
+                    logoWidth = Integer.parseInt(props.getProperty("logoWidth"));
+                } catch (NumberFormatException e) {
+                    logoWidth = 150;
+                }
+            }
+
+            if (props.containsKey("logoAlignment")) {
+                logoAlignment = props.getProperty("logoAlignment");
+            }
+
+            return new TemplateInfo(displayName, description, createdDate, logoPath, logoWidth, logoAlignment);
         } catch (Exception e) {
             System.err.println("Failed to load template info: " + e.getMessage());
             return null;
@@ -236,11 +283,22 @@ public class TemplateManager {
         private final String displayName;
         private final String description;
         private final Date createdDate;
+        private final String logoPath;
+        private final Integer logoWidth;
+        private final String logoAlignment;
 
         public TemplateInfo(String displayName, String description, Date createdDate) {
+            this(displayName, description, createdDate, null, 150, "CENTER");
+        }
+
+        public TemplateInfo(String displayName, String description, Date createdDate,
+                String logoPath, Integer logoWidth, String logoAlignment) {
             this.displayName = displayName;
             this.description = description;
             this.createdDate = createdDate;
+            this.logoPath = logoPath;
+            this.logoWidth = logoWidth;
+            this.logoAlignment = logoAlignment;
         }
 
         public String getDisplayName() {
@@ -253,6 +311,22 @@ public class TemplateManager {
 
         public Date getCreatedDate() {
             return createdDate;
+        }
+
+        public String getLogoPath() {
+            return logoPath;
+        }
+
+        public Integer getLogoWidth() {
+            return logoWidth != null ? logoWidth : 150;
+        }
+
+        public String getLogoAlignment() {
+            return logoAlignment != null ? logoAlignment : "CENTER";
+        }
+
+        public boolean hasLogo() {
+            return logoPath != null && !logoPath.trim().isEmpty();
         }
 
         public String getFormattedDate() {
