@@ -1326,29 +1326,25 @@ public class MainFrame extends JFrame {
             String currentFontFamily = "Courier New";
             String allCurrentFontFamily = allSetFontStyle;
 
-            System.out.println(allCurrentFontFamily);
-
-            if (isok) {
-                if (allCurrentFontFamily != "Courier New") {
-                    System.out.println("ok");
-                    currentFontFamily = allCurrentFontFamily;
-                }
+            if (isok && allCurrentFontFamily != null && !allCurrentFontFamily.equals("Courier New")) {
+                currentFontFamily = allCurrentFontFamily;
             }
 
-            // Enhanced pattern to capture font names with spaces and special characters
             Pattern printPattern = Pattern.compile("(\\[BOLD\\]|\\[/BOLD\\]|\\[SIZE=(\\d+)\\]|\\[/SIZE\\]|\\[FONT=([^\\]]+)\\]|\\[/FONT\\])");
             Matcher printMatcher = printPattern.matcher(line);
 
             int lastIndex = 0;
 
             while (printMatcher.find()) {
-                // Draw text before the tag
                 if (printMatcher.start() > lastIndex) {
                     String textToDraw = line.substring(lastIndex, printMatcher.start());
                     if (!textToDraw.isEmpty()) {
-                        // Create and set font before drawing
                         Font fontToUse = createPrintFont(currentFontFamily, currentBold, currentFontSize);
                         g2d.setFont(fontToUse);
+
+                        // Enable anti-aliasing for better font rendering
+                        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                                RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
                         g2d.drawString(textToDraw, currentX, y);
                         currentX += g2d.getFontMetrics(fontToUse).stringWidth(textToDraw);
@@ -1374,18 +1370,22 @@ public class MainFrame extends JFrame {
                         currentFontFamily = validateAndGetFont(extractedFont.trim());
                     }
                 } else if (tag.equals("[/FONT]")) {
-                    currentFontFamily = "Courier New";
+                    currentFontFamily = isok && allCurrentFontFamily != null ? allCurrentFontFamily : "Courier New";
                 }
 
                 lastIndex = printMatcher.end();
             }
 
-            // Draw remaining text after all tags are processed
             if (lastIndex < line.length()) {
                 String textToDraw = line.substring(lastIndex);
                 if (!textToDraw.isEmpty()) {
                     Font fontToUse = createPrintFont(currentFontFamily, currentBold, currentFontSize);
                     g2d.setFont(fontToUse);
+
+                    // Enable anti-aliasing for better font rendering
+                    g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                            RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
                     g2d.drawString(textToDraw, currentX, y);
                 }
             }
@@ -1423,32 +1423,43 @@ public class MainFrame extends JFrame {
             // Check if the exact font exists
             for (String availableFont : availableFonts) {
                 if (availableFont.equalsIgnoreCase(requestedFont)) {
-                    return availableFont;
+                    // Verify the font can actually render
+                    Font testFont = new Font(availableFont, Font.PLAIN, 12);
+                    if (!testFont.getFamily().equalsIgnoreCase("Dialog")) {
+                        return availableFont;
+                    }
                 }
             }
 
-            // Check for partial matches (useful for fonts with versions)
+            // Check for partial matches
             for (String availableFont : availableFonts) {
                 if (availableFont.toLowerCase().contains(requestedFont.toLowerCase())
                         || requestedFont.toLowerCase().contains(availableFont.toLowerCase())) {
-                    System.out.println("Using closest match: " + availableFont + " for requested: " + requestedFont);
-                    return availableFont;
+                    Font testFont = new Font(availableFont, Font.PLAIN, 12);
+                    if (!testFont.getFamily().equalsIgnoreCase("Dialog")) {
+                        System.out.println("Using closest match: " + availableFont + " for requested: " + requestedFont);
+                        return availableFont;
+                    }
                 }
             }
 
-            // For common substitutions
+            // For display/decorative fonts that may not print well, use Arial as fallback
             String lowerFont = requestedFont.toLowerCase();
-            if (lowerFont.contains("arial")) {
+            if (lowerFont.contains("arial") || lowerFont.contains("helvetica")) {
                 return "Arial";
             } else if (lowerFont.contains("times")) {
                 return "Times New Roman";
             } else if (lowerFont.contains("courier")) {
                 return "Courier New";
+            } else if (lowerFont.contains("verdana")) {
+                return "Verdana";
+            } else if (lowerFont.contains("tahoma")) {
+                return "Tahoma";
             }
 
-            // Last resort - return Courier New for thermal printer compatibility
-            System.out.println("Font '" + requestedFont + "' not found, using Courier New");
-            return "Courier New";
+            // For unknown/problematic fonts, use Arial (better for display text than Courier)
+            System.out.println("Font '" + requestedFont + "' not found or cannot render, using Arial");
+            return "Arial";
         }
 // Also add this method to help debug font issues:
 
@@ -1563,8 +1574,10 @@ public class MainFrame extends JFrame {
             if (cleanTextLength >= width) {
                 return processLineLength(text, width);
             }
-            int padding = (width - cleanTextLength) / 2;
-            return " ".repeat(Math.max(0, padding)) + text;
+            int totalPadding = width - cleanTextLength;
+            int leftPadding = totalPadding / 2;
+            int rightPadding = totalPadding - leftPadding; // Ensures total adds up correctly
+            return " ".repeat(Math.max(0, leftPadding)) + text + " ".repeat(Math.max(0, rightPadding));
         }
 
         private String rightAlignTextForPrint(String text, int width) {
@@ -1572,8 +1585,8 @@ public class MainFrame extends JFrame {
             if (cleanTextLength >= width) {
                 return processLineLength(text, width);
             }
-            int padding = width - cleanTextLength;
-            return " ".repeat(Math.max(0, padding)) + text;
+            int leftPadding = width - cleanTextLength;
+            return " ".repeat(Math.max(0, leftPadding)) + text;
         }
 
         private int getVisibleTextLengthForPrint(String text) {
