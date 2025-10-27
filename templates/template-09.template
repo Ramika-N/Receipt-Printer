@@ -1,0 +1,24 @@
+========================================
+           [BOLD]MY BUSINESS NAME [/BOLD]           
+      123 Street, City, ZIP Code          
+        Phone: (XXX) XXX-XXXX           
+========================================
+     [SIZE=12]Date: 2023-11-16  Time: 10:45 AM[/SIZE]       
+       [SIZE=11]Order #: 1001   Cashier: ALICE[/SIZE]         
+----------------------------------------
+[BOLD]ITEM[/BOLD]               [BOLD]QTY[/BOLD]   [BOLD]PRICE[/BOLD]   [BOLD]TOTAL[/BOLD]  
+----------------------------------------
+Coffee Latte        1    $4.50   $4.50  
+Croissant           2    $3.00   $6.00  
+Bottle Water        1    $1.50   $1.50  
+----------------------------------------
+SUBTOTAL:                       $12.00  
+TAX (8%):                        $0.96  
+TOTAL:                          $12.96  
+========================================
+PAYMENT: CASH                   $15.00  
+CHANGE:                          $2.04  
+========================================
+       [BOLD]THANK YOU FOR YOUR VISIT![/BOLD]       
+      Feedback: example@email.com         
+========================================
