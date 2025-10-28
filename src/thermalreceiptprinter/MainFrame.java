@@ -23,6 +23,8 @@ import java.util.regex.Pattern;
 import java.io.File;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class MainFrame extends JFrame {
 
@@ -98,7 +100,9 @@ public class MainFrame extends JFrame {
 
         JMenuItem newMenuItem = new JMenuItem("New Receipt");
         newMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl N"));
-        newMenuItem.addActionListener(e -> clearReceipt());
+        newMenuItem.addActionListener(e -> {
+            clearReceipt();
+        });
 
         JMenuItem templatesMenuItem = new JMenuItem("Manage Templates...");
         templatesMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl T"));
@@ -522,28 +526,8 @@ public class MainFrame extends JFrame {
     }
 
     private void setupEventListeners() {
-        receiptTextPane.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                updatePreview();
-                updateBoldButton();
-                updateFormatButtons();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                updatePreview();
-                updateBoldButton();
-                updateFormatButtons();
-            }
-
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                updatePreview();
-                updateBoldButton();
-                updateFormatButtons();
-            }
-        });
+        // Replace the existing document listener with this:
+        setupAutoWrapListener();  // FIX #3: Use new auto-wrap listener
 
         receiptTextPane.addCaretListener(e -> updateBoldButton());
 
@@ -633,6 +617,85 @@ public class MainFrame extends JFrame {
         previewTextPane.setEditable(false);
         previewTextPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         previewTextPane.setFont(new Font("Courier New", Font.PLAIN, (int) (fontSize * 1.15)));
+    }
+
+    private void setupAutoWrapListener() {
+        receiptTextPane.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                SwingUtilities.invokeLater(() -> checkAndWrapText(e));
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                updatePreview();
+                updateBoldButton();
+                updateFormatButtons();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                updatePreview();
+                updateBoldButton();
+                updateFormatButtons();
+            }
+        });
+    }
+
+    private void checkAndWrapText(DocumentEvent e) {
+        try {
+            StyledDocument doc = receiptTextPane.getStyledDocument();
+            int offset = e.getOffset();
+
+            // Find the current line
+            Element root = doc.getDefaultRootElement();
+            int lineIndex = root.getElementIndex(offset);
+            Element line = root.getElement(lineIndex);
+
+            int lineStart = line.getStartOffset();
+            int lineEnd = line.getEndOffset();
+            String lineText = doc.getText(lineStart, lineEnd - lineStart);
+
+            // Remove formatting tags to count actual characters
+            String cleanText = lineText.replaceAll("\\[BOLD\\]|\\[/BOLD\\]|\\[SIZE=\\d+\\]|\\[/SIZE\\]|\\[FONT=[^\\]]+\\]|\\[/FONT\\]", "");
+
+            // Check if line exceeds 42 characters (excluding newline)
+            if (cleanText.length() > 42 && !cleanText.trim().isEmpty()) {
+                // Find the last space within 42 characters
+                int wrapPosition = 42;
+                for (int i = 42; i >= 0; i--) {
+                    if (i < cleanText.length() && cleanText.charAt(i) == ' ') {
+                        wrapPosition = i;
+                        break;
+                    }
+                }
+
+                // If no space found, wrap at exactly 42 characters
+                if (wrapPosition == 42 || cleanText.charAt(wrapPosition) != ' ') {
+                    wrapPosition = Math.min(42, cleanText.length());
+                }
+
+                // Insert newline at wrap position if not already at end of line
+                if (wrapPosition < cleanText.length() - 1) {
+                    int actualPosition = lineStart + wrapPosition;
+
+                    // Preserve formatting attributes
+                    AttributeSet attrs = doc.getCharacterElement(actualPosition).getAttributes();
+
+                    // Check if there's already a newline
+                    if (!cleanText.substring(wrapPosition, wrapPosition + 1).equals("\n")) {
+                        doc.insertString(actualPosition, "\n", attrs);
+                    }
+                }
+            }
+
+            updatePreview();
+            updateBoldButton();
+            updateFormatButtons();
+
+        } catch (BadLocationException ex) {
+            // Silently handle - text is being modified
+        }
     }
 
     private void updatePreviewFont() {
