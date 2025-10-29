@@ -679,12 +679,20 @@ public class MainFrame extends JFrame {
                 if (wrapPosition < cleanText.length() - 1) {
                     int actualPosition = lineStart + wrapPosition;
 
-                    // Preserve formatting attributes
-                    AttributeSet attrs = doc.getCharacterElement(actualPosition).getAttributes();
+                    // Get ALL formatting attributes from the character BEFORE the wrap position
+                    AttributeSet attrs = doc.getCharacterElement(Math.max(0, actualPosition - 1)).getAttributes();
+
+                    // Create a copy of the attributes to preserve them
+                    SimpleAttributeSet newLineAttrs = new SimpleAttributeSet(attrs);
 
                     // Check if there's already a newline
                     if (!cleanText.substring(wrapPosition, wrapPosition + 1).equals("\n")) {
-                        doc.insertString(actualPosition, "\n", attrs);
+                        doc.insertString(actualPosition, "\n", newLineAttrs);
+
+                        // IMPORTANT: Set the input attributes so the next line continues with the same formatting
+                        MutableAttributeSet inputAttrs = receiptTextPane.getInputAttributes();
+                        inputAttrs.removeAttributes(inputAttrs);
+                        inputAttrs.addAttributes(attrs);
                     }
                 }
             }
@@ -982,6 +990,57 @@ public class MainFrame extends JFrame {
                     charFontFamily = "Courier New";
                 }
 
+                // Handle newline character
+                if (currentChar == '\n') {
+                    // Close tags before newline
+                    if (inBold) {
+                        result.append("[/BOLD]");
+                    }
+                    if (currentFontSize != 14) {
+                        result.append("[/SIZE]");
+                    }
+                    if (!currentFont.equals("Courier New")) {
+                        result.append("[/FONT]");
+                    }
+
+                    result.append('\n');
+
+                    // Reopen tags after newline if next character has formatting
+                    if (i + 1 < text.length()) {
+                        AttributeSet nextAttrs = doc.getCharacterElement(i + 1).getAttributes();
+                        boolean nextIsBold = StyleConstants.isBold(nextAttrs);
+                        int nextFontSize = StyleConstants.getFontSize(nextAttrs);
+                        String nextFontFamily = StyleConstants.getFontFamily(nextAttrs);
+
+                        if (nextFontFamily == null || nextFontFamily.trim().isEmpty()) {
+                            nextFontFamily = "Courier New";
+                        }
+
+                        if (nextIsBold) {
+                            result.append("[BOLD]");
+                            inBold = true;
+                        } else {
+                            inBold = false;
+                        }
+
+                        if (nextFontSize != 14) {
+                            result.append("[SIZE=").append(nextFontSize).append("]");
+                            currentFontSize = nextFontSize;
+                        } else {
+                            currentFontSize = 14;
+                        }
+
+                        if (!nextFontFamily.equals("Courier New")) {
+                            result.append("[FONT=").append(nextFontFamily).append("]");
+                            currentFont = nextFontFamily;
+                        } else {
+                            currentFont = "Courier New";
+                        }
+                    }
+                    continue;
+                }
+
+                // Handle bold changes
                 if (charIsBold != inBold) {
                     if (charIsBold) {
                         result.append("[BOLD]");
@@ -992,6 +1051,7 @@ public class MainFrame extends JFrame {
                     }
                 }
 
+                // Handle font size changes
                 if (charFontSize != currentFontSize) {
                     if (currentFontSize != 14) {
                         result.append("[/SIZE]");
@@ -1002,6 +1062,7 @@ public class MainFrame extends JFrame {
                     currentFontSize = charFontSize;
                 }
 
+                // Handle font family changes
                 if (!charFontFamily.equals(currentFont)) {
                     if (!currentFont.equals("Courier New")) {
                         result.append("[/FONT]");
@@ -1015,6 +1076,7 @@ public class MainFrame extends JFrame {
                 result.append(currentChar);
             }
 
+            // Close any remaining open tags
             if (inBold) {
                 result.append("[/BOLD]");
             }
@@ -1431,6 +1493,30 @@ public class MainFrame extends JFrame {
             attributes.add(new Copies(1));
             attributes.add(MediaSizeName.INVOICE);
             attributes.add(PrintQuality.HIGH);
+
+            // Set margins using MediaPrintableArea (in millimeters)
+            // For 80mm paper (Invoice size is 5.5" x 8.5" or ~140mm x 216mm)
+            // 0.5 inch = 12.7 mm
+            float leftMarginMM = 12.7f;   // 0.5 inch in mm
+            float rightMarginMM = 12.7f;  // 0.5 inch in mm
+            float topMarginMM = 25.4f;    // 1.0 inch in mm (default)
+            float bottomMarginMM = 25.4f; // 1.0 inch in mm (default)
+
+            // Calculate printable area dimensions
+            // Invoice paper width is approximately 140mm
+            float paperWidthMM = 140f;
+            float paperHeightMM = 216f;
+
+            float printableWidthMM = paperWidthMM - leftMarginMM - rightMarginMM;
+            float printableHeightMM = paperHeightMM - topMarginMM - bottomMarginMM;
+
+            attributes.add(new javax.print.attribute.standard.MediaPrintableArea(
+                    leftMarginMM,
+                    topMarginMM,
+                    printableWidthMM,
+                    printableHeightMM,
+                    javax.print.attribute.standard.MediaPrintableArea.MM));
+
             fontSize = (Integer) fontSizeSpinner.getValue();
             job.setPrintable(new ReceiptPrintable(content, fontSize, alignment, logoImage,
                     (Integer) logoWidthSpinner.getValue(),
