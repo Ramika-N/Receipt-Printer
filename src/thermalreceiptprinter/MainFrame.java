@@ -67,7 +67,7 @@ public class MainFrame extends JFrame {
         initComponents();
         setupEventListeners();
         updatePreview();
-        setIconImage(Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/logo1.png")));
+        setIconImage(Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/logo2.png")));
     }
 
     private void initComponents() {
