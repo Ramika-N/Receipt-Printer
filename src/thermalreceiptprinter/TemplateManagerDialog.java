@@ -24,6 +24,7 @@ public class TemplateManagerDialog extends JDialog {
     private JButton closeButton;
     private MainFrame parentFrame;
     private TemplateManager templateManager;
+    private JLabel logoPreviewLabel;
 
     public TemplateManagerDialog(MainFrame parent) {
         super(parent, "Template Manager", true);
@@ -76,6 +77,18 @@ public class TemplateManagerDialog extends JDialog {
         JPanel previewPanel = new JPanel(new BorderLayout());
         previewPanel.setBorder(new TitledBorder("Template Preview"));
 
+       logoPreviewLabel = new JLabel();
+        logoPreviewLabel.setHorizontalAlignment(JLabel.CENTER);
+        logoPreviewLabel.setPreferredSize(new Dimension(450, 120));
+        logoPreviewLabel.setMinimumSize(new Dimension(450, 120));
+        logoPreviewLabel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY),
+            BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        logoPreviewLabel.setBackground(new Color(250, 250, 250));
+        logoPreviewLabel.setOpaque(false);
+        logoPreviewLabel.setVisible(false);
+
         previewArea = new JTextArea();
         previewArea.setEditable(false);
         previewArea.setFont(new Font("Courier New", Font.PLAIN, 12));
@@ -84,6 +97,8 @@ public class TemplateManagerDialog extends JDialog {
 
         JScrollPane previewScroll = new JScrollPane(previewArea);
         previewScroll.setPreferredSize(new Dimension(450, 300));
+
+        previewPanel.add(logoPreviewLabel, BorderLayout.NORTH);
         previewPanel.add(previewScroll, BorderLayout.CENTER);
 
         tabbedPane.addTab("Preview", previewPanel);
