@@ -1363,11 +1363,12 @@ public class MainFrame extends JFrame {
         try {
             doc.remove(0, doc.getLength());
 
-            // Add spacing for logo if present
+            // Add spacing for logo if present - REDUCED GAP
             if (logoImage != null) {
                 int logoWidth = (Integer) logoWidthSpinner.getValue();
                 int logoHeight = (int) (logoImage.getHeight() * ((double) logoWidth / logoImage.getWidth()));
-                int linesForLogo = (logoHeight / 15) + 2; // Approximate lines needed
+                // Changed: Use smaller multiplier and subtract padding
+                int linesForLogo = (logoHeight / 20) + 0; // Reduced from /15 +2 to /18 +1
 
                 for (int i = 0; i < linesForLogo; i++) {
                     doc.insertString(doc.getLength(), "\n", null);
