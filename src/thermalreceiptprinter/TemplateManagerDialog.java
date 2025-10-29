@@ -7,8 +7,10 @@ import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.List;
+import javax.imageio.ImageIO;
 
 public class TemplateManagerDialog extends JDialog {
 
@@ -77,15 +79,15 @@ public class TemplateManagerDialog extends JDialog {
         JPanel previewPanel = new JPanel(new BorderLayout());
         previewPanel.setBorder(new TitledBorder("Template Preview"));
 
-       logoPreviewLabel = new JLabel();
+        logoPreviewLabel = new JLabel();
         logoPreviewLabel.setHorizontalAlignment(JLabel.CENTER);
         logoPreviewLabel.setPreferredSize(new Dimension(450, 120));
         logoPreviewLabel.setMinimumSize(new Dimension(450, 120));
         logoPreviewLabel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY),
-            BorderFactory.createEmptyBorder(10, 10, 10, 10)
+                BorderFactory.createMatteBorder(0, 0, 1, 0, Color.WHITE),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)
         ));
-        logoPreviewLabel.setBackground(new Color(250, 250, 250));
+        logoPreviewLabel.setBackground(new Color(248, 248, 248));
         logoPreviewLabel.setOpaque(false);
         logoPreviewLabel.setVisible(false);
 
@@ -205,6 +207,9 @@ public class TemplateManagerDialog extends JDialog {
         if (selectedTemplate == null) {
             previewArea.setText("Select a template to preview its content");
             infoArea.setText("Select a template to view its information");
+            logoPreviewLabel.setIcon(null); // Clear icon
+            logoPreviewLabel.setText(null); // Clear text
+            logoPreviewLabel.setVisible(false);
             return;
         }
 
@@ -218,7 +223,63 @@ public class TemplateManagerDialog extends JDialog {
         }
 
         TemplateManager.TemplateInfo info = templateManager.getTemplateInfo(selectedTemplate);
+
+        // --- LOGO PREVIEW DISPLAY FIX START ---
+        logoPreviewLabel.setIcon(null);
+        logoPreviewLabel.setText(null); // Fix 2: Ensure logo name is cleared/not set
+        logoPreviewLabel.setVisible(false);
+
+        if (info != null && info.hasLogo()) {
+            File logoFile = new File(info.getLogoPath());
+
+            if (logoFile.exists()) {
+                try {
+                    // Load the original image
+                    BufferedImage originalImage = ImageIO.read(logoFile);
+                    int labelWidth = logoPreviewLabel.getPreferredSize().width; // 450
+                    int labelHeight = logoPreviewLabel.getPreferredSize().height; // 120
+
+                    int imageWidth = originalImage.getWidth();
+                    int imageHeight = originalImage.getHeight();
+
+                    // Calculate scaling ratio to fit within the label bounds
+                    double scale = Math.min((double) labelWidth / imageWidth, (double) labelHeight / imageHeight);
+                    int scaledWidth = (int) (imageWidth * scale * 0.9); // Use 90% of max size for padding
+                    int scaledHeight = (int) (imageHeight * scale * 0.9);
+
+                    // Scale the image and set the icon
+                    Image scaledImage = originalImage.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
+                    logoPreviewLabel.setIcon(new ImageIcon(scaledImage));
+
+                    // Fix 1: Set alignment for the logo icon
+                    String logoAlignment = info.getLogoAlignment();
+                    if ("LEFT".equals(logoAlignment)) {
+                        logoPreviewLabel.setHorizontalAlignment(JLabel.LEFT);
+                    } else if ("RIGHT".equals(logoAlignment)) {
+                        logoPreviewLabel.setHorizontalAlignment(JLabel.RIGHT);
+                    } else { // CENTER or default
+                        logoPreviewLabel.setHorizontalAlignment(JLabel.CENTER);
+                    }
+
+                    // Fix 2: Ensure text is cleared/not set if image loads
+                    logoPreviewLabel.setText(null);
+                    logoPreviewLabel.setVisible(true);
+
+                } catch (Exception e) {
+                    logoPreviewLabel.setText("Error loading logo image for preview.");
+                    logoPreviewLabel.setForeground(Color.RED);
+                    logoPreviewLabel.setVisible(true);
+                }
+            } else {
+                logoPreviewLabel.setText("Logo file missing at saved path. (Preview Unavailable)");
+                logoPreviewLabel.setForeground(Color.RED);
+                logoPreviewLabel.setVisible(true);
+            }
+        }
+        // --- LOGO PREVIEW DISPLAY FIX END ---
+
         if (info != null) {
+            // ... (rest of the infoArea logic is unchanged)
             StringBuilder infoText = new StringBuilder();
             infoText.append("Template Name: ").append(info.getDisplayName()).append("\n\n");
             infoText.append("Description: ").append(info.getDescription()).append("\n\n");

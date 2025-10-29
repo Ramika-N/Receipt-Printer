@@ -84,7 +84,7 @@ public class MainFrame extends JFrame {
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
         splitPane.setResizeWeight(1.0); // Left panel gets extra space
         splitPane.setOneTouchExpandable(true);
-        splitPane.setDividerLocation(380); // Initial divider location
+        splitPane.setDividerLocation(400); // Initial divider location
 
         add(splitPane, BorderLayout.CENTER);
 
