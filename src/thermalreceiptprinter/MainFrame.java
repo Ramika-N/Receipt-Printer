@@ -49,8 +49,8 @@ public class MainFrame extends JFrame {
     public boolean isok = false;
     private int fontSize = 12;
     private String alignment = "LEFT";
-    private final int RECEIPT_WIDTH = 46;
-    private final int TSP100_CHAR_WIDTH = 46;
+    private final int RECEIPT_WIDTH = 45;
+    private final int TSP100_CHAR_WIDTH = 45;
     private JTextPane previewTextPane;
 
     // Logo support
@@ -445,7 +445,7 @@ public class MainFrame extends JFrame {
         panel.add(previewScroll, BorderLayout.CENTER);
 
         JPanel infoPanel = new JPanel(new BorderLayout());
-        JLabel infoLabel = new JLabel("<html><center>Preview shows exactly how your receipt will print<br/>46 characters wide for 80mm thermal paper</center></html>");
+        JLabel infoLabel = new JLabel("<html><center>Preview shows exactly how your receipt will print<br/>45 characters wide for 80mm thermal paper</center></html>");
         infoLabel.setHorizontalAlignment(JLabel.CENTER);
         infoLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
@@ -659,20 +659,20 @@ public class MainFrame extends JFrame {
             // Remove formatting tags to count actual characters
             String cleanText = lineText.replaceAll("\\[BOLD\\]|\\[/BOLD\\]|\\[SIZE=\\d+\\]|\\[/SIZE\\]|\\[FONT=[^\\]]+\\]|\\[/FONT\\]", "");
 
-            // Check if line exceeds 46 characters (excluding newline)
-            if (cleanText.length() > 46 && !cleanText.trim().isEmpty()) {
-                // Find the last space within 46 characters
-                int wrapPosition = 46;
-                for (int i = 46; i >= 0; i--) {
+            // Check if line exceeds 45 characters (excluding newline)
+            if (cleanText.length() > 45 && !cleanText.trim().isEmpty()) {
+                // Find the last space within 45 characters
+                int wrapPosition = 45;
+                for (int i = 45; i >= 0; i--) {
                     if (i < cleanText.length() && cleanText.charAt(i) == ' ') {
                         wrapPosition = i;
                         break;
                     }
                 }
 
-                // If no space found, wrap at exactly 46 characters
-                if (wrapPosition == 46 || cleanText.charAt(wrapPosition) != ' ') {
-                    wrapPosition = Math.min(46, cleanText.length());
+                // If no space found, wrap at exactly 45 characters
+                if (wrapPosition == 45 || cleanText.charAt(wrapPosition) != ' ') {
+                    wrapPosition = Math.min(45, cleanText.length());
                 }
 
                 // Insert newline at wrap position if not already at end of line
@@ -1233,7 +1233,7 @@ public class MainFrame extends JFrame {
         =============
         RECEIPT WIDTH
         =============
-        • Standard 80mm thermal paper: 46 characters
+        • Standard 80mm thermal paper: 45 characters
         • Wider receipts may need adjustment
         
         ===========
@@ -1562,7 +1562,7 @@ public class MainFrame extends JFrame {
         private int fontSize;
         private String alignment;
         private float lineSpacing;
-        private final int TSP100_PRINT_WIDTH = 46;
+        private final int TSP100_PRINT_WIDTH = 45;
         private final int THERMAL_PRINT_FONT_SIZE;
         private BufferedImage logo;
         private int logoWidth;
